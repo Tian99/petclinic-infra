@@ -8,7 +8,7 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  ARTIFACT_BUCKET: petclinic-tf-state
+  ARTIFACT_BUCKET: petclinic-ci-artifacts
   IMAGE_FILE: latest-image.txt
 
 jobs:
@@ -45,7 +45,7 @@ jobs:
       # ---------------------------------
       - name: Download latest image tag
         run: |
-          echo "📥 Downloading latest image tag..."
+          echo "Downloading latest image tag..."
           gsutil cp gs://${ARTIFACT_BUCKET}/${IMAGE_FILE} latest-image.txt
           IMAGE_URI=$(cat latest-image.txt)
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
