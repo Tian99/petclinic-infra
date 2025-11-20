@@ -8,7 +8,7 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  ARTIFACT_BUCKET: petclinic-ci-artifacts
+  ARTIFACT_BUCKET: petclinic-tf-state
   IMAGE_FILE: latest-image.txt
 
 jobs:
@@ -45,28 +45,23 @@ jobs:
       # ---------------------------------
       - name: Download latest image tag
         run: |
-          echo "📥 Downloading latest image tag from GCS..."
+          echo "📥 Downloading latest image tag..."
           gsutil cp gs://${ARTIFACT_BUCKET}/${IMAGE_FILE} latest-image.txt
           IMAGE_URI=$(cat latest-image.txt)
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
           echo "Using Image: $IMAGE_URI"
 
       # ---------------------------------
-      # 4. Generate terraform.auto.tfvars
+      # 4. Generate terraform.auto.tfvars (正确版本)
       # ---------------------------------
       - name: Create terraform.auto.tfvars
         working-directory: infra
         run: |
-          echo "Generating terraform.auto.tfvars..."
-          cat > terraform.auto.tfvars <<EOF
-            project_id     = "${{ secrets.GCP_PROJECT_ID }}"
-            db_user        = "${{ secrets.DB_USER }}"
-            db_password    = "${{ secrets.DB_PASSWORD }}"
-            db_name        = "${{ secrets.DB_NAME }}"
-            image          = "${IMAGE_URI}"
-            EOF
-
-          echo "terraform.auto.tfvars created."
+          echo "project_id  = \"${{ secrets.GCP_PROJECT_ID }}\""  > terraform.auto.tfvars
+          echo "db_user     = \"${{ secrets.DB_USER }}\""         >> terraform.auto.tfvars
+          echo "db_password = \"${{ secrets.DB_PASSWORD }}\""     >> terraform.auto.tfvars
+          echo "db_name     = \"${{ secrets.DB_NAME }}\""         >> terraform.auto.tfvars
+          echo "image       = \"${IMAGE_URI}\""                   >> terraform.auto.tfvars
 
       # ---------------------------------
       # 5. Terraform Init
