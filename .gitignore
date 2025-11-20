@@ -1,0 +1,95 @@
+# ===========================
+# Java / Spring Boot
+# ===========================
+target/
+build/
+out/
+*.class
+*.jar
+*.war
+*.ear
+*.iml
+
+# Logs
+*.log
+logs/
+spring.log
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.project
+*.classpath
+*.settings/
+*.factorypath
+
+# ===========================
+# Gradle
+# ===========================
+.gradle/
+gradle-app.setting
+!gradle/wrapper/gradle-wrapper.jar
+
+# ===========================
+# Maven
+# ===========================
+.mvn/
+.mvn/wrapper/maven-wrapper.jar
+
+# ===========================
+# Docker
+# ===========================
+*.tar
+docker-compose.override.yml
+.env
+.env.*
+
+# ===========================
+# Terraform
+# ===========================
+**/.terraform/
+**/.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup
+*.tfvars
+*.tfvars.json
+crash.log
+
+# Terraform override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# ===========================
+# GCP Credentials
+# ===========================
+# NEVER commit service account keys
+*.json
+*-key.json
+*serviceaccount*.json
+
+# ===========================
+# GitHub Actions
+# ===========================
+# Ignore local workflow runs and local cache
+.github/*-local.yml
+actions-runner/
+
+# ===========================
+# OS & Editor Files
+# ===========================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.tmp
+*.bak
+
+# ===========================
+# Node (if any UI later)
+# ===========================
+node_modules/
+npm-debug.log
+yarn-error.log
