@@ -15,41 +15,44 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout infra repository
-      uses: actions/checkout@v4
+      - name: Checkout infra repository
+        uses: actions/checkout@v4
 
-    # ----------------------------
-    # 1. Authenticate to GCP
-    # ----------------------------
-    - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v2
-      with:
-        credentials_json: ${{ secrets.GCP_SA_KEY }}
+      # ----------------------------
+      # 1. Authenticate to GCP
+      # ----------------------------
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-    - name: Install gcloud CLI
-      uses: google-github-actions/setup-gcloud@v2
+      - name: Install gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
 
-    # ----------------------------
-    # 2. Setup Terraform
-    # ----------------------------
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
+      # ----------------------------
+      # 2. Setup Terraform
+      # ----------------------------
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
 
-    # ----------------------------
-    # 3. Terraform Init
-    # ----------------------------
-    - name: Terraform Init
-      run: terraform init -upgrade
+      # ----------------------------
+      # 3. Terraform Init
+      # ----------------------------
+      - name: Terraform Init
+        working-directory: infra
+        run: terraform init -upgrade
 
-    # ----------------------------
-    # 4. Terraform Plan
-    # ----------------------------
-    - name: Terraform Plan
-      run: terraform plan -out=tfplan
+      # ----------------------------
+      # 4. Terraform Plan
+      # ----------------------------
+      - name: Terraform Plan
+        working-directory: infra
+        run: terraform plan -out=tfplan
 
-    # ----------------------------
-    # 5. Terraform Apply (Only on push to main)
-    # ----------------------------
-    - name: Terraform Apply
-      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      run: terraform apply -auto-approve tfplan
+      # ----------------------------
+      # 5. Terraform Apply (only if push main)
+      # ----------------------------
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        working-directory: infra
+        run: terraform apply -auto-approve tfplan
