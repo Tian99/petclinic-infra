@@ -48,11 +48,12 @@ jobs:
           echo "Downloading latest image tag..."
           gsutil cp gs://${ARTIFACT_BUCKET}/${IMAGE_FILE} latest-image.txt
           IMAGE_URI=$(cat latest-image.txt)
+
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
           echo "Using Image: $IMAGE_URI"
 
       # ---------------------------------
-      # 4. Generate terraform.auto.tfvars (正确版本)
+      # 4. Generate terraform.auto.tfvars  (★ 修复后的正确写法)
       # ---------------------------------
       - name: Create terraform.auto.tfvars
         working-directory: infra
@@ -61,7 +62,7 @@ jobs:
           echo "db_user     = \"${{ secrets.DB_USER }}\""         >> terraform.auto.tfvars
           echo "db_password = \"${{ secrets.DB_PASSWORD }}\""     >> terraform.auto.tfvars
           echo "db_name     = \"${{ secrets.DB_NAME }}\""         >> terraform.auto.tfvars
-          echo "image       = \"${IMAGE_URI}\""                   >> terraform.auto.tfvars
+          echo "image       = \"${{ env.IMAGE_URI }}\""           >> terraform.auto.tfvars
 
       # ---------------------------------
       # 5. Terraform Init
@@ -78,7 +79,7 @@ jobs:
         run: terraform plan -out=tfplan
 
       # ---------------------------------
-      # 7. Terraform Apply
+      # 7. Terraform Apply (main only)
       # ---------------------------------
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
