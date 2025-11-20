@@ -1,0 +1,86 @@
+name: Terraform CI/CD for Petclinic
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  ARTIFACT_BUCKET: petclinic-ci-artifacts
+  IMAGE_FILE: latest-image.txt
+
+jobs:
+  terraform:
+    name: Terraform Plan & Apply
+    runs-on: ubuntu-latest
+
+    steps:
+      # ---------------------------------
+      # 0. Checkout infra repository
+      # ---------------------------------
+      - name: Checkout infra repository
+        uses: actions/checkout@v4
+
+      # ---------------------------------
+      # 1. Authenticate to GCP
+      # ---------------------------------
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Install gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      # ---------------------------------
+      # 2. Setup Terraform
+      # ---------------------------------
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      # ---------------------------------
+      # 3. Download latest image tag from GCS
+      # ---------------------------------
+      - name: Download latest image tag
+        run: |
+          echo "Downloading latest image tag..."
+          gsutil cp gs://${ARTIFACT_BUCKET}/${IMAGE_FILE} latest-image.txt
+          IMAGE_URI=$(cat latest-image.txt)
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+          echo "Using Image: $IMAGE_URI"
+
+      # ---------------------------------
+      # 4. Generate terraform.auto.tfvars (正确版本)
+      # ---------------------------------
+      - name: Create terraform.auto.tfvars
+        working-directory: infra
+        run: |
+          echo "project_id  = \"${{ secrets.GCP_PROJECT_ID }}\""  > terraform.auto.tfvars
+          echo "db_user     = \"${{ secrets.DB_USER }}\""         >> terraform.auto.tfvars
+          echo "db_password = \"${{ secrets.DB_PASSWORD }}\""     >> terraform.auto.tfvars
+          echo "db_name     = \"${{ secrets.DB_NAME }}\""         >> terraform.auto.tfvars
+          echo "image       = \"${IMAGE_URI}\""                   >> terraform.auto.tfvars
+
+      # ---------------------------------
+      # 5. Terraform Init
+      # ---------------------------------
+      - name: Terraform Init
+        working-directory: infra
+        run: terraform init -upgrade
+
+      # ---------------------------------
+      # 6. Terraform Plan
+      # ---------------------------------
+      - name: Terraform Plan
+        working-directory: infra
+        run: terraform plan -out=tfplan
+
+      # ---------------------------------
+      # 7. Terraform Apply
+      # ---------------------------------
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        working-directory: infra
+        run: terraform apply -auto-approve tfplan
