@@ -3,7 +3,7 @@
 #############################################
 
 resource "google_vpc_access_connector" "eu_connector" {
-  name = "petclinic-eu-vpc-connector"
+  name = "pc-eu-conn"
   region = var.eu_region
   network = var.vpc_self_link
   ip_cidr_range = "10.8.0.0/28"
@@ -15,7 +15,7 @@ resource "google_vpc_access_connector" "eu_connector" {
 #############################################
 
 resource "google_vpc_access_connector" "us_connector" {
-  name = "petclinic-us-vpc-connector"
+  name = "pc-us-conn"
   region = var.us_region
   network = var.vpc_self_link
   ip_cidr_range = "10.9.0.0/28"

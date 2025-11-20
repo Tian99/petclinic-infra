@@ -27,5 +27,4 @@ variable "db_connection_name_us" {
 variable "image" {
   type        = string
   description = "Container image for Cloud Run service"
-  default     = "europe-west1-docker.pkg.dev/YOUR_PROJECT/petclinic/petclinic:latest"
 }

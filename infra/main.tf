@@ -50,6 +50,7 @@ module "run" {
 
   db_connection_name_eu = module.sql.primary_connection_name
   db_connection_name_us = module.sql.replica_connection_name
+  image = var.image
 }
 
 
@@ -61,10 +62,14 @@ module "lb" {
   source     = "./modules/lb"
   project_id = var.project_id
 
-  eu_region_run_url = module.run.eu_url
-  us_region_run_url = module.run.us_url
-}
+  domain_name      = "petclinic.oju.app"
 
+  eu_region        = var.eu_region
+  us_region        = var.us_region
+
+  eu_service_name  = "petclinic-eu"
+  us_service_name  = "petclinic-us"
+}
 
 #############################################
 # Outputs

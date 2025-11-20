@@ -56,3 +56,8 @@ variable "env" {
   description = "Environment name (dev / staging / prod)."
   default     = "dev"
 }
+
+variable "image" {
+  type        = string
+  description = "Docker image used by Cloud Run services."
+}
