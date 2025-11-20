@@ -8,7 +8,7 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  ARTIFACT_BUCKET: petclinic-ci-artifacts   # 你需要创建一次这个 GCS bucket
+  ARTIFACT_BUCKET: petclinic-tf-state
   IMAGE_FILE: latest-image.txt
 
 jobs:
