@@ -24,6 +24,31 @@ variable "db_connection_name_us" {
   description = "Cloud SQL connection string for US region Cloud Run"
 }
 
+variable "db_private_ip_eu" {
+  type        = string
+  description = "Private IP of Cloud SQL instance (EU)"
+}
+
+variable "db_private_ip_us" {
+  type        = string
+  description = "Private IP of Cloud SQL instance (US) if replica exists"
+}
+
+variable "db_user" {
+  type        = string
+  description = "Database username"
+}
+
+variable "db_password" {
+  type        = string
+  description = "Database password"
+}
+
+variable "db_name" {
+  type        = string
+  description = "Database name"
+}
+
 variable "image" {
   type        = string
   description = "Container image for Cloud Run service"
