@@ -33,9 +33,18 @@ resource "google_cloud_run_v2_service" "eu_service" {
       image = var.image
 
       # ---------- DB Credentials ----------
-      env { name = "DB_USER"     value = var.db_user }
-      env { name = "DB_PASSWORD" value = var.db_password }
-      env { name = "DB_NAME"     value = var.db_name }
+      env {
+        name  = "DB_USER"
+        value = var.db_user
+      }
+      env {
+        name  = "DB_PASSWORD"
+        value = var.db_password
+      }
+      env {
+        name  = "DB_NAME"
+        value = var.db_name
+      }
 
       # ---------- DB Host (Private IP) ----------
       env {
@@ -80,11 +89,20 @@ resource "google_cloud_run_v2_service" "us_service" {
       image = var.image
 
       # ---------- DB Credentials ----------
-      env { name = "DB_USER"     value = var.db_user }
-      env { name = "DB_PASSWORD" value = var.db_password }
-      env { name = "DB_NAME"     value = var.db_name }
+      env {
+        name  = "DB_USER"
+        value = var.db_user
+      }
+      env {
+        name  = "DB_PASSWORD"
+        value = var.db_password
+      }
+      env {
+        name  = "DB_NAME"
+        value = var.db_name
+      }
 
-      # ---------- DB Host (Private IP of Replica) ----------
+      # ---------- DB Host (Replica Private IP) ----------
       env {
         name  = "DB_HOST"
         value = var.db_private_ip_us
