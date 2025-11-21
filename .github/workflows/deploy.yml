@@ -63,8 +63,6 @@ jobs:
           echo "db_password = \"${{ secrets.DB_PASSWORD }}\""     >> terraform.auto.tfvars
           echo "db_name     = \"${{ secrets.DB_NAME }}\""         >> terraform.auto.tfvars
           echo "image       = \"${{ env.IMAGE_URI }}\""           >> terraform.auto.tfvars
-          echo "db_private_ip_eu = \"${{ secrets.DB_PRIVATE_IP_EU }}\"" >> terraform.auto.tfvars
-          echo "db_private_ip_us = \"${{ secrets.DB_PRIVATE_IP_US }}\"" >> terraform.auto.tfvars
 
       # ---------------------------------
       # 5. Terraform Init
