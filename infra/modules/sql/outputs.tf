@@ -14,9 +14,9 @@ output "primary_instance_name" {
 }
 
 output "primary_private_ip" {
-  value = google_sql_database_instance.primary.private_ip_address
+  value = google_sql_database_instance.primary.ip_address[0].ip_address
 }
 
 output "replica_private_ip" {
-  value = google_sql_database_instance.replica.private_ip_address
+  value = google_sql_database_instance.replica.ip_address[0].ip_address
 }
