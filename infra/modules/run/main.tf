@@ -1,6 +1,4 @@
-#############################################
-# 1. EU Region VPC Connector
-#############################################
+
 
 resource "google_vpc_access_connector" "eu_connector" {
   name          = "pc-eu-conn"
@@ -9,9 +7,7 @@ resource "google_vpc_access_connector" "eu_connector" {
   ip_cidr_range = "10.8.0.0/28"
 }
 
-#############################################
-# 2. US Region VPC Connector
-#############################################
+
 
 resource "google_vpc_access_connector" "us_connector" {
   name          = "pc-us-conn"
@@ -20,56 +16,63 @@ resource "google_vpc_access_connector" "us_connector" {
   ip_cidr_range = "10.9.0.0/28"
 }
 
-#############################################
-# 3. EU Region Cloud Run (v2)
-#############################################
+
 
 resource "google_cloud_run_v2_service" "eu_service" {
   name     = "petclinic-eu"
   location = var.eu_region
 
   template {
-    containers {
-      image = var.image
-      env {
-        name  = "REGION"
-        value = "EU"
-      }
-      # ---------- DB Credentials ----------
-      env {
-        name  = "DB_USER"
-        value = var.db_user
-      }
-      env {
-        name  = "DB_PASSWORD"
-        value = var.db_password
-      }
-      env {
-        name  = "DB_NAME"
-        value = var.db_name
-      }
-
-      # ---------- DB Host (Private IP) ----------
-      env {
-        name  = "DB_HOST"
-        value = var.db_private_ip_eu
-      }
-
-      # ---------- JDBC URL ----------
-      env {
-        name  = "DB_URL"
-        value = "jdbc:postgresql://${var.db_private_ip_eu}:5432/${var.db_name}"
-      }
-    }
-
     scaling {
       min_instance_count = 0
-      max_instance_count = 5
+      max_instance_count = var.max_instances
     }
 
     vpc_access {
       connector = google_vpc_access_connector.eu_connector.id
       egress    = "ALL_TRAFFIC"
+    }
+
+    containers {
+      image = var.image
+
+      resources {
+        cpu_idle = false
+        limits = {
+          cpu    = "2"
+          memory = "2Gi"
+        }
+      }
+
+      env {
+        name  = "SPRING_PROFILES_ACTIVE"
+        value = "eu"
+      }
+
+      env {
+        name  = "DB_USER"
+        value = var.db_user
+      }
+
+      env {
+        name  = "DB_PASSWORD"
+        value = var.db_password
+      }
+
+      env {
+        name  = "DB_NAME"
+        value = var.db_name
+      }
+
+      env {
+        name  = "DB_HOST"
+        value = var.db_private_ip_eu
+      }
+
+      env {
+        name  = "DB_URL"
+        value = "jdbc:postgresql://${var.db_private_ip_eu}:5432/${var.db_name}"
+      }
     }
   }
 
@@ -79,57 +82,63 @@ resource "google_cloud_run_v2_service" "eu_service" {
   }
 }
 
-#############################################
-# 4. US Region Cloud Run (v2)
-#############################################
+
 
 resource "google_cloud_run_v2_service" "us_service" {
   name     = "petclinic-us"
   location = var.us_region
 
   template {
-    containers {
-      image = var.image
-      env {
-        name  = "REGION"
-        value = "US"
-      }
-
-      # ---------- DB Credentials ----------
-      env {
-        name  = "DB_USER"
-        value = var.db_user
-      }
-      env {
-        name  = "DB_PASSWORD"
-        value = var.db_password
-      }
-      env {
-        name  = "DB_NAME"
-        value = var.db_name
-      }
-
-      # ---------- DB Host (Replica Private IP) ----------
-      env {
-        name  = "DB_HOST"
-        value = var.db_private_ip_us
-      }
-
-      # ---------- JDBC URL ----------
-      env {
-        name  = "DB_URL"
-        value = "jdbc:postgresql://${var.db_private_ip_us}:5432/${var.db_name}"
-      }
-    }
-
     scaling {
       min_instance_count = 0
-      max_instance_count = 5
+      max_instance_count = var.max_instances
     }
 
     vpc_access {
       connector = google_vpc_access_connector.us_connector.id
       egress    = "ALL_TRAFFIC"
+    }
+
+    containers {
+      image = var.image
+
+      resources {
+        cpu_idle = false
+        limits = {
+          cpu    = "2"
+          memory = "2Gi"
+        }
+      }
+
+      env {
+        name  = "SPRING_PROFILES_ACTIVE"
+        value = "us"
+      }
+
+      env {
+        name  = "DB_USER"
+        value = var.db_user
+      }
+
+      env {
+        name  = "DB_PASSWORD"
+        value = var.db_password
+      }
+
+      env {
+        name  = "DB_NAME"
+        value = var.db_name
+      }
+
+      env {
+        name  = "DB_HOST"
+        value = var.db_private_ip_us
+      }
+
+      env {
+        name  = "DB_URL"
+        value = "jdbc:postgresql://${var.db_private_ip_us}:5432/${var.db_name}"
+      }
     }
   }
 

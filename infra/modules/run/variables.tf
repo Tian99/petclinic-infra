@@ -53,3 +53,9 @@ variable "image" {
   type        = string
   description = "Container image for Cloud Run service"
 }
+
+variable "max_instances" {
+  type        = number
+  description = "Maximum number of Cloud Run instances for autoscaling"
+  default     = 100
+}
