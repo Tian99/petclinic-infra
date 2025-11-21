@@ -50,6 +50,14 @@ module "run" {
 
   db_connection_name_eu = module.sql.primary_connection_name
   db_connection_name_us = module.sql.replica_connection_name
+
+  db_private_ip_eu = module.sql.primary_private_ip
+  db_private_ip_us = module.sql.replica_private_ip
+
+  db_user     = var.db_user
+  db_password = var.db_password
+  db_name     = var.db_name
+
   image = var.image
 }
 
