@@ -1,13 +1,10 @@
 
-
 resource "google_vpc_access_connector" "eu_connector" {
   name          = "pc-eu-conn"
   region        = var.eu_region
   network       = var.vpc_self_link
   ip_cidr_range = "10.8.0.0/28"
 }
-
-
 
 resource "google_vpc_access_connector" "us_connector" {
   name          = "pc-us-conn"
@@ -17,15 +14,17 @@ resource "google_vpc_access_connector" "us_connector" {
 }
 
 
-
 resource "google_cloud_run_v2_service" "eu_service" {
   name     = "petclinic-eu"
   location = var.eu_region
 
   template {
+
+    max_instance_request_concurrency = 1000
+
     scaling {
-      min_instance_count = 0
-      max_instance_count = var.max_instances
+      min_instance_count = 1
+      max_instance_count = 10
     }
 
     vpc_access {
@@ -48,7 +47,6 @@ resource "google_cloud_run_v2_service" "eu_service" {
         name  = "SPRING_PROFILES_ACTIVE"
         value = "eu"
       }
-
       env {
         name  = "DB_USER"
         value = var.db_user
@@ -73,6 +71,7 @@ resource "google_cloud_run_v2_service" "eu_service" {
         name  = "DB_URL"
         value = "jdbc:postgresql://${var.db_private_ip_eu}:5432/${var.db_name}"
       }
+
     }
   }
 
@@ -83,15 +82,16 @@ resource "google_cloud_run_v2_service" "eu_service" {
 }
 
 
-
 resource "google_cloud_run_v2_service" "us_service" {
   name     = "petclinic-us"
   location = var.us_region
 
   template {
+    max_instance_request_concurrency = 1000
+
     scaling {
-      min_instance_count = 0
-      max_instance_count = var.max_instances
+      min_instance_count = 1
+      max_instance_count = 10
     }
 
     vpc_access {
@@ -110,6 +110,7 @@ resource "google_cloud_run_v2_service" "us_service" {
         }
       }
 
+      # Spring profile for US deployment
       env {
         name  = "SPRING_PROFILES_ACTIVE"
         value = "us"

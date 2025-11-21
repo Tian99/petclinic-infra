@@ -31,7 +31,7 @@ variable "db_password" {
 variable "db_tier" {
   type        = string
   description = "Cloud SQL instance machine tier."
-  default     = "db-custom-2-4096"
+  default     = "db-custom-16-61440"
 }
 
 variable "vpc_self_link" {
@@ -39,7 +39,6 @@ variable "vpc_self_link" {
   description = "Self link of the VPC network used for private IP."
 }
 
-# 先预留，后面如果想玩得更细（每个 region 单独 subnet / PSC）可以用上
 variable "eu_subnet" {
   type        = string
   description = "EU subnet self link or name (reserved for advanced setups)."

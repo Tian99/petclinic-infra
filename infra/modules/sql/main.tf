@@ -1,6 +1,4 @@
-#############################################
-# Primary Cloud SQL instance (EU)
-#############################################
+
 
 resource "google_sql_database_instance" "primary" {
   name             = "petclinic-sql-eu"
@@ -10,7 +8,6 @@ resource "google_sql_database_instance" "primary" {
 
   settings {
     tier = var.db_tier
-
     availability_type = "REGIONAL"
 
     ip_configuration {
@@ -29,25 +26,22 @@ resource "google_sql_database_instance" "primary" {
       record_application_tags = true
       record_client_address   = true
     }
+
+    database_flags {
+      name  = "max_connections"
+      value = "6000"
+    }
   }
 
   deletion_protection = false
 }
 
 
-#############################################
-# Database inside primary
-#############################################
-
 resource "google_sql_database" "primary_db" {
   name     = var.db_name
   instance = google_sql_database_instance.primary.name
 }
 
-
-#############################################
-# DB User
-#############################################
 
 resource "google_sql_user" "db_user" {
   name     = var.db_user
@@ -56,16 +50,12 @@ resource "google_sql_user" "db_user" {
 }
 
 
-#############################################
-# Read Replica in US Region
-#############################################
-
 resource "google_sql_database_instance" "replica" {
   name    = "petclinic-sql-us-replica"
   project = var.project_id
   region  = var.replica_region
 
-  database_version    = google_sql_database_instance.primary.database_version
+  database_version     = google_sql_database_instance.primary.database_version
   master_instance_name = google_sql_database_instance.primary.name
 
   settings {
@@ -74,6 +64,11 @@ resource "google_sql_database_instance" "replica" {
     ip_configuration {
       ipv4_enabled    = false
       private_network = var.vpc_self_link
+    }
+
+    database_flags {
+      name  = "max_connections"
+      value = "6000"
     }
   }
 
