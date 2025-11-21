@@ -32,35 +32,20 @@ resource "google_cloud_run_v2_service" "eu_service" {
     containers {
       image = var.image
 
-      ##############################
-      # DB Credentials
-      ##############################
+      # ---------- DB Credentials ----------
+      env { name = "DB_USER"     value = var.db_user }
+      env { name = "DB_PASSWORD" value = var.db_password }
+      env { name = "DB_NAME"     value = var.db_name }
+
+      # ---------- DB Host (Private IP) ----------
       env {
-        name  = "DB_USER"
-        value = var.db_user
-      }
-      env {
-        name  = "DB_PASSWORD"
-        value = var.db_password
-      }
-      env {
-        name  = "DB_NAME"
-        value = var.db_name
+        name  = "DB_HOST"
+        value = var.db_private_ip_eu
       }
 
-      ##############################
-      # Cloud SQL Connection Name
-      ##############################
+      # ---------- JDBC URL ----------
       env {
-        name  = "CLOUD_SQL_CONNECTION_NAME"
-        value = var.db_connection_name_eu
-      }
-
-      ##############################
-      # JDBC URL
-      ##############################
-      env {
-        name = "DB_URL"
+        name  = "DB_URL"
         value = "jdbc:postgresql://${var.db_private_ip_eu}:5432/${var.db_name}"
       }
     }
@@ -94,17 +79,20 @@ resource "google_cloud_run_v2_service" "us_service" {
     containers {
       image = var.image
 
-      env { name = "DB_USER"  value = var.db_user }
-      env { name = "DB_PASSWORD"  value = var.db_password }
-      env { name = "DB_NAME"  value = var.db_name }
+      # ---------- DB Credentials ----------
+      env { name = "DB_USER"     value = var.db_user }
+      env { name = "DB_PASSWORD" value = var.db_password }
+      env { name = "DB_NAME"     value = var.db_name }
 
+      # ---------- DB Host (Private IP of Replica) ----------
       env {
-        name  = "CLOUD_SQL_CONNECTION_NAME"
-        value = var.db_connection_name_us
+        name  = "DB_HOST"
+        value = var.db_private_ip_us
       }
 
+      # ---------- JDBC URL ----------
       env {
-        name = "DB_URL"
+        name  = "DB_URL"
         value = "jdbc:postgresql://${var.db_private_ip_us}:5432/${var.db_name}"
       }
     }
