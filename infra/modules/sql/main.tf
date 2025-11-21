@@ -73,6 +73,8 @@ resource "google_sql_database_instance" "replica" {
   }
 
   depends_on = [
-    google_sql_database_instance.primary
+      google_sql_database_instance.primary,
+      google_sql_user.db_user,
+      google_sql_database.primary_db,
   ]
 }
