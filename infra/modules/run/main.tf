@@ -31,7 +31,10 @@ resource "google_cloud_run_v2_service" "eu_service" {
   template {
     containers {
       image = var.image
-
+      env {
+        name  = "REGION"
+        value = "EU"
+      }
       # ---------- DB Credentials ----------
       env {
         name  = "DB_USER"
@@ -87,6 +90,10 @@ resource "google_cloud_run_v2_service" "us_service" {
   template {
     containers {
       image = var.image
+      env {
+        name  = "REGION"
+        value = "US"
+      }
 
       # ---------- DB Credentials ----------
       env {
