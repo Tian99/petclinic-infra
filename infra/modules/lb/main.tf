@@ -1,16 +1,7 @@
-#############################################
-# 1. Global IP Address
-#############################################
-
 resource "google_compute_global_address" "lb_ip" {
   name    = "petclinic-global-ip"
   project = var.project_id
 }
-
-
-#############################################
-# 2. Managed HTTPS Certificate
-#############################################
 
 resource "google_compute_managed_ssl_certificate" "ssl" {
   name    = "petclinic-ssl-cert"
@@ -21,10 +12,20 @@ resource "google_compute_managed_ssl_certificate" "ssl" {
   }
 }
 
+resource "google_compute_health_check" "http_health_check" {
+  name    = "petclinic-health-check"
+  project = var.project_id
 
-#############################################
-# 3. Serverless NEGs for Cloud Run v2
-#############################################
+  http_health_check {
+    request_path = "/healthz"
+    port         = 80
+  }
+
+  check_interval_sec  = 2
+  timeout_sec         = 1
+  healthy_threshold   = 1
+  unhealthy_threshold = 1
+}
 
 resource "google_compute_region_network_endpoint_group" "eu_neg" {
   name                  = "petclinic-eu-neg"
@@ -48,17 +49,14 @@ resource "google_compute_region_network_endpoint_group" "us_neg" {
   }
 }
 
-
-#############################################
-# 4. Backend Service (External Managed LB)
-#############################################
-
 resource "google_compute_backend_service" "backend" {
   name                  = "petclinic-backend"
   project               = var.project_id
   protocol              = "HTTP"
   timeout_sec           = 30
   load_balancing_scheme = "EXTERNAL_MANAGED"
+
+  health_checks = [google_compute_health_check.http_health_check.id]
 
   backend {
     group = google_compute_region_network_endpoint_group.eu_neg.id
@@ -69,21 +67,11 @@ resource "google_compute_backend_service" "backend" {
   }
 }
 
-
-#############################################
-# 5. URL Map
-#############################################
-
 resource "google_compute_url_map" "urlmap" {
   name            = "petclinic-urlmap"
   project         = var.project_id
   default_service = google_compute_backend_service.backend.id
 }
-
-
-#############################################
-# 6. HTTPS Proxy
-#############################################
 
 resource "google_compute_target_https_proxy" "https_proxy" {
   name    = "petclinic-https-proxy"
@@ -92,11 +80,6 @@ resource "google_compute_target_https_proxy" "https_proxy" {
   url_map          = google_compute_url_map.urlmap.id
   ssl_certificates = [google_compute_managed_ssl_certificate.ssl.id]
 }
-
-
-#############################################
-# 7. Global Forwarding Rule (External Managed)
-#############################################
 
 resource "google_compute_global_forwarding_rule" "https_rule" {
   name    = "petclinic-https-rule"
