@@ -12,21 +12,6 @@ resource "google_compute_managed_ssl_certificate" "ssl" {
   }
 }
 
-resource "google_compute_health_check" "http_health_check" {
-  name    = "petclinic-health-check"
-  project = var.project_id
-
-  http_health_check {
-    request_path = "/healthz"
-    port         = 80
-  }
-
-  check_interval_sec  = 2
-  timeout_sec         = 1
-  healthy_threshold   = 1
-  unhealthy_threshold = 1
-}
-
 resource "google_compute_region_network_endpoint_group" "eu_neg" {
   name                  = "petclinic-eu-neg"
   project               = var.project_id
@@ -55,8 +40,6 @@ resource "google_compute_backend_service" "backend" {
   protocol              = "HTTP"
   timeout_sec           = 30
   load_balancing_scheme = "EXTERNAL_MANAGED"
-
-  health_checks = [google_compute_health_check.http_health_check.id]
 
   backend {
     group = google_compute_region_network_endpoint_group.eu_neg.id
