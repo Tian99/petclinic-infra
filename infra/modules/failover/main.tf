@@ -186,9 +186,7 @@ resource "google_monitoring_alert_policy" "regional_failure" {
     display_name = "Uptime check failed for US region"
 
     condition_threshold {
-      filter = "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" " 
-             + "AND resource.type=\"uptime_url\" "
-             + "AND resource.label.\"host\"=\"${local.us_host}\""
+      filter = "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND resource.type=\"uptime_url\" AND resource.label.\"host\"=\"${local.us_host}\""
 
       comparison      = "COMPARISON_LT"
       threshold_value = 1
