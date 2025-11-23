@@ -79,9 +79,16 @@ module "lb" {
   us_service_name  = "petclinic-us"
 }
 
-#############################################
-# Outputs
-#############################################
+module "failover" {
+  source = "./modules/failover"
+
+  project_id           = var.project_id
+  region               = var.eu_region
+  backend_service_name = "petclinic-backend"
+  eu_neg_name          = "petclinic-eu-neg"
+  us_neg_name          = "petclinic-us-neg"
+  healthcheck_host     = "petclinic.oju.app"
+}
 
 output "lb_url" {
   value       = module.lb.lb_url
