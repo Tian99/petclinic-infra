@@ -3,11 +3,6 @@ variable "project_id" {
   description = "GCP project id"
 }
 
-variable "project_number" {
-  type        = string
-  description = "GCP project number (required for Cloud Functions Gen2 IAM)"
-}
-
 variable "region" {
   type        = string
   description = "Region for Cloud Function & bucket (e.g. europe-west1)"
@@ -34,11 +29,11 @@ variable "healthcheck_host" {
 }
 
 variable "pubsub_topic_name" {
-  type        = string
-  default     = "regional-failover-topic"
+  type    = string
+  default = "regional-failover-topic"
 }
 
 variable "function_name" {
-  type        = string
-  default     = "regional-failover-fn"
+  type    = string
+  default = "regional-failover-fn"
 }

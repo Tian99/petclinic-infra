@@ -1,12 +1,8 @@
-import base64
-import json
 import os
-
 from googleapiclient.discovery import build
 
 
 def main(event, context):
-
     project_id = os.environ["PROJECT_ID"]
     backend_service = os.environ["BACKEND_SERVICE"]
     eu_neg_name = os.environ["EU_NEG_NAME"]

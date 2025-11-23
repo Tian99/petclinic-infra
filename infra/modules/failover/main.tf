@@ -9,18 +9,9 @@ terraform {
   }
 }
 
-############################################
-# Required APIs
-############################################
-
 resource "google_project_service" "cloudfunctions" {
   project = var.project_id
   service = "cloudfunctions.googleapis.com"
-}
-
-resource "google_project_service" "eventarc" {
-  project = var.project_id
-  service = "eventarc.googleapis.com"
 }
 
 resource "google_project_service" "cloudbuild" {
@@ -38,13 +29,11 @@ resource "google_project_service" "monitoring" {
   service = "monitoring.googleapis.com"
 }
 
-############################################
-# Pub/Sub Topic
-############################################
-
 resource "google_pubsub_topic" "regional_failover" {
   name    = var.pubsub_topic_name
   project = var.project_id
+
+  depends_on = [google_project_service.pubsub]
 }
 
 resource "google_monitoring_notification_channel" "regional_failover" {
@@ -56,10 +45,6 @@ resource "google_monitoring_notification_channel" "regional_failover" {
     topic = google_pubsub_topic.regional_failover.id
   }
 }
-
-############################################
-# Cloud Function Source Zip
-############################################
 
 resource "google_storage_bucket" "function_src" {
   name          = "${var.project_id}-regional-failover-src"
@@ -80,89 +65,48 @@ resource "google_storage_bucket_object" "function_zip" {
   source = data.archive_file.function_zip.output_path
 }
 
-############################################
-# Cloud Function SA (custom)
-############################################
-
 resource "google_service_account" "failover_sa" {
-  project      = var.project_id
   account_id   = "regional-failover-fn"
   display_name = "Regional Failover Function SA"
+  project      = var.project_id
 }
 
-############################################
-# IAM — minimal roles required
-############################################
-
-# 1. Allow the function to modify backend services (traffic shifting)
 resource "google_project_iam_member" "failover_sa_lb_admin" {
   project = var.project_id
   role    = "roles/compute.loadBalancerAdmin"
   member  = "serviceAccount:${google_service_account.failover_sa.email}"
 }
 
-# 2. Cloud Build default builder (MUST HAVE – or build will fail)
-resource "google_project_iam_member" "cf_compute_builder" {
-  project = var.project_id
-  role    = "roles/cloudbuild.builds.builder"
-  member  = "serviceAccount:${var.project_number}-compute@developer.gserviceaccount.com"
-}
+resource "google_cloudfunctions_function" "regional_failover" {
+  name        = var.function_name
+  description = "Automatically shift traffic to EU when US region fails"
+  project     = var.project_id
+  region      = var.region
+  runtime     = "python311"
+  entry_point = "main"
 
-# 3. Cloud Functions Gen2 Service Agent — REQUIRED
-resource "google_project_iam_member" "cf_serviceagent_run_admin" {
-  project = var.project_id
-  role    = "roles/run.admin"
-  member  = "serviceAccount:service-${var.project_number}@gcp-sa-cloudfunctions.iam.gserviceaccount.com"
-}
+  source_archive_bucket = google_storage_bucket.function_src.name
+  source_archive_object = google_storage_bucket_object.function_zip.name
 
-resource "google_project_iam_member" "cf_serviceagent_sa_user" {
-  project = var.project_id
-  role    = "roles/iam.serviceAccountUser"
-  member  = "serviceAccount:service-${var.project_number}@gcp-sa-cloudfunctions.iam.gserviceaccount.com"
-}
+  available_memory_mb = 256
+  timeout             = 60
 
-############################################
-# Cloud Function Gen2
-############################################
+  trigger_topic         = google_pubsub_topic.regional_failover.name
+  service_account_email = google_service_account.failover_sa.email
 
-resource "google_cloudfunctions2_function" "regional_failover" {
-  name     = var.function_name
-  project  = var.project_id
-  location = var.region
-
-  build_config {
-    runtime     = "python311"
-    entry_point = "main"
-    source {
-      storage_source {
-        bucket = google_storage_bucket.function_src.name
-        object = google_storage_bucket_object.function_zip.name
-      }
-    }
+  environment_variables = {
+    PROJECT_ID       = var.project_id
+    BACKEND_SERVICE  = var.backend_service_name
+    EU_NEG_NAME      = var.eu_neg_name
+    US_NEG_NAME      = var.us_neg_name
   }
 
-  service_config {
-    available_memory      = "256M"
-    timeout_seconds       = 60
-    service_account_email = google_service_account.failover_sa.email
-
-    environment_variables = {
-      PROJECT_ID       = var.project_id
-      BACKEND_SERVICE  = var.backend_service_name
-      EU_NEG_NAME      = var.eu_neg_name
-      US_NEG_NAME      = var.us_neg_name
-    }
-  }
-
-  event_trigger {
-    event_type   = "google.cloud.pubsub.topic.v1.messagePublished"
-    pubsub_topic = google_pubsub_topic.regional_failover.id
-  }
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.cloudbuild,
+    google_pubsub_topic.regional_failover
+  ]
 }
-
-############################################
-# Uptime Check
-############################################
 
 resource "google_monitoring_uptime_check_config" "healthcheck" {
   display_name = "petclinic-healthcheck"
@@ -182,17 +126,14 @@ resource "google_monitoring_uptime_check_config" "healthcheck" {
 
   timeout = "10s"
   period  = "60s"
+
+  depends_on = [google_project_service.monitoring]
 }
 
-############################################
-# Alert → PubSub → Function → Failover
-############################################
-
 resource "google_monitoring_alert_policy" "regional_failure" {
+  display_name = "Regional Failure: healthz down on ${var.healthcheck_host}"
+  combiner     = "OR"
   project      = var.project_id
-  display_name = "Regional Failure: healthz down"
-
-  combiner = "OR"
 
   conditions {
     display_name = "Uptime check failed"
@@ -211,5 +152,9 @@ resource "google_monitoring_alert_policy" "regional_failure" {
 
   notification_channels = [
     google_monitoring_notification_channel.regional_failover.name
+  ]
+
+  depends_on = [
+    google_monitoring_uptime_check_config.healthcheck
   ]
 }
