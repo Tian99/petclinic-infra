@@ -115,9 +115,10 @@ resource "google_cloudfunctions_function" "regional_failover" {
   source_archive_bucket = google_storage_bucket.function_src.name
   source_archive_object = google_storage_bucket_object.function_zip.name
 
-  # Pub/Sub trigger
-  trigger_topic = google_pubsub_topic.regional_failover.name
-
+  event_trigger {
+    event_type = "google.pubsub.topic.publish"
+    resource   = google_pubsub_topic.regional_failover.name
+  }
   service_account_email = google_service_account.failover_sa.email
 
   environment_variables = {
