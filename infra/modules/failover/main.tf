@@ -9,6 +9,10 @@ terraform {
   }
 }
 
+resource "google_project_service" "eventarc" {
+  project = var.project_id
+  service = "eventarc.googleapis.com"
+}
 
 resource "google_project_service" "cloudfunctions" {
   project = var.project_id
@@ -30,11 +34,13 @@ resource "google_project_service" "monitoring" {
   service = "monitoring.googleapis.com"
 }
 
-
 resource "google_pubsub_topic" "regional_failover" {
   name    = var.pubsub_topic_name
   project = var.project_id
-  depends_on = [ google_project_service.pubsub ]
+
+  depends_on = [
+    google_project_service.pubsub
+  ]
 }
 
 resource "google_monitoring_notification_channel" "regional_failover" {
@@ -80,14 +86,19 @@ resource "google_project_iam_member" "failover_sa_lb_admin" {
   member  = "serviceAccount:${google_service_account.failover_sa.email}"
 }
 
-
 resource "google_cloudfunctions2_function" "regional_failover" {
-  name        = var.function_name
-  project     = var.project_id
-  location    = var.region
+  name     = var.function_name
+  project  = var.project_id
+  location = var.region
+
+  depends_on = [
+    google_project_service.eventarc,
+    google_project_service.cloudfunctions,
+    google_project_service.cloudbuild
+  ]
 
   build_config {
-    runtime = "python311"
+    runtime     = "python311"
     entry_point = "main"
 
     source {
@@ -99,8 +110,8 @@ resource "google_cloudfunctions2_function" "regional_failover" {
   }
 
   service_config {
-    available_memory = "256M"
-    timeout_seconds  = 60
+    available_memory      = "256M"
+    timeout_seconds       = 60
     service_account_email = google_service_account.failover_sa.email
 
     environment_variables = {
@@ -112,14 +123,10 @@ resource "google_cloudfunctions2_function" "regional_failover" {
   }
 
   event_trigger {
-    event_type = "google.cloud.pubsub.topic.v1.messagePublished"
+    event_type   = "google.cloud.pubsub.topic.v1.messagePublished"
     pubsub_topic = google_pubsub_topic.regional_failover.id
   }
 }
-
-#########################################
-# Uptime Check
-#########################################
 
 resource "google_monitoring_uptime_check_config" "healthcheck" {
   display_name = "petclinic-healthcheck"
@@ -165,9 +172,4 @@ resource "google_monitoring_alert_policy" "regional_failure" {
   notification_channels = [
     google_monitoring_notification_channel.regional_failover.name
   ]
-
-  documentation {
-    content   = "Automatically trigger regional failover when uptime check fails."
-    mime_type = "text/markdown"
-  }
 }
