@@ -79,6 +79,7 @@ module "failover" {
   eu_neg_name          = "petclinic-eu-neg"
   us_neg_name          = "petclinic-us-neg"
   healthcheck_host     = "petclinic.oju.app"
+  us_run_url           = module.run.us_url
 }
 
 output "lb_url" {

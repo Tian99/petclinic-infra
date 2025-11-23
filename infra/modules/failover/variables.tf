@@ -42,3 +42,7 @@ variable "project_number" {
   type        = string
   description = "GCP Project number"
 }
+
+variable "us_run_url" {
+  type = string
+}
