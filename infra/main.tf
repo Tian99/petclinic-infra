@@ -83,6 +83,7 @@ module "failover" {
   source = "./modules/failover"
 
   project_id           = var.project_id
+  project_number       = var.project_number 
   region               = var.eu_region
   backend_service_name = "petclinic-backend"
   eu_neg_name          = "petclinic-eu-neg"

@@ -61,3 +61,8 @@ variable "image" {
   type        = string
   description = "Docker image used by Cloud Run services."
 }
+
+variable "project_number" {
+  type = string
+  default     = "987886214324"
+}
