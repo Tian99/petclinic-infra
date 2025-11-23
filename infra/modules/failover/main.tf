@@ -10,9 +10,31 @@ terraform {
 }
 
 
+resource "google_project_service" "cloudfunctions" {
+  project = var.project_id
+  service = "cloudfunctions.googleapis.com"
+}
+
+resource "google_project_service" "cloudbuild" {
+  project = var.project_id
+  service = "cloudbuild.googleapis.com"
+}
+
+resource "google_project_service" "pubsub" {
+  project = var.project_id
+  service = "pubsub.googleapis.com"
+}
+
+resource "google_project_service" "monitoring" {
+  project = var.project_id
+  service = "monitoring.googleapis.com"
+}
+
+
 resource "google_pubsub_topic" "regional_failover" {
   name    = var.pubsub_topic_name
   project = var.project_id
+  depends_on = [ google_project_service.pubsub ]
 }
 
 resource "google_monitoring_notification_channel" "regional_failover" {
@@ -59,39 +81,52 @@ resource "google_project_iam_member" "failover_sa_lb_admin" {
 }
 
 
-resource "google_cloudfunctions_function" "regional_failover" {
+resource "google_cloudfunctions2_function" "regional_failover" {
   name        = var.function_name
-  description = "Automatically shift traffic to EU when US region fails"
   project     = var.project_id
-  region      = var.region
-  runtime     = "python311"
-  entry_point = "main"
+  location    = var.region
 
-  available_memory_mb   = 256
-  source_archive_bucket = google_storage_bucket.function_src.name
-  source_archive_object = google_storage_bucket_object.function_zip.name
+  build_config {
+    runtime = "python311"
+    entry_point = "main"
+
+    source {
+      storage_source {
+        bucket = google_storage_bucket.function_src.name
+        object = google_storage_bucket_object.function_zip.name
+      }
+    }
+  }
+
+  service_config {
+    available_memory = "256M"
+    timeout_seconds  = 60
+    service_account_email = google_service_account.failover_sa.email
+
+    environment_variables = {
+      PROJECT_ID       = var.project_id
+      BACKEND_SERVICE  = var.backend_service_name
+      EU_NEG_NAME      = var.eu_neg_name
+      US_NEG_NAME      = var.us_neg_name
+    }
+  }
 
   event_trigger {
-    event_type = "google.pubsub.topic.publish"
-    resource   = google_pubsub_topic.regional_failover.name
-  }
-
-  service_account_email = google_service_account.failover_sa.email
-
-  environment_variables = {
-    PROJECT_ID       = var.project_id
-    BACKEND_SERVICE  = var.backend_service_name
-    EU_NEG_NAME      = var.eu_neg_name
-    US_NEG_NAME      = var.us_neg_name
+    event_type = "google.cloud.pubsub.topic.v1.messagePublished"
+    pubsub_topic = google_pubsub_topic.regional_failover.id
   }
 }
+
+#########################################
+# Uptime Check
+#########################################
 
 resource "google_monitoring_uptime_check_config" "healthcheck" {
   display_name = "petclinic-healthcheck"
 
   http_check {
-    path = "/healthz"
-    port = 443
+    path    = "/healthz"
+    port    = 443
     use_ssl = true
   }
 
@@ -112,7 +147,7 @@ resource "google_monitoring_alert_policy" "regional_failure" {
   project      = var.project_id
 
   conditions {
-    display_name = "Uptime check failed on ${var.healthcheck_host}"
+    display_name = "Uptime check failed"
 
     condition_threshold {
       filter = <<-EOT
@@ -124,11 +159,6 @@ resource "google_monitoring_alert_policy" "regional_failure" {
       comparison      = "COMPARISON_LT"
       threshold_value = 1
       duration        = "60s"
-
-      aggregations {
-        alignment_period   = "60s"
-        per_series_aligner = "ALIGN_MEAN"
-      }
     }
   }
 
@@ -139,9 +169,5 @@ resource "google_monitoring_alert_policy" "regional_failure" {
   documentation {
     content   = "Automatically trigger regional failover when uptime check fails."
     mime_type = "text/markdown"
-  }
-
-  user_labels = {
-    scenario = "regional-failover"
   }
 }
