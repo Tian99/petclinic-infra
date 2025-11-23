@@ -141,6 +141,12 @@ resource "google_project_iam_member" "compute_sa_storage_viewer" {
   member  = "serviceAccount:${var.project_number}-compute@developer.gserviceaccount.com"
 }
 
+resource "google_project_iam_member" "compute_sa_log_writer" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${var.project_number}-compute@developer.gserviceaccount.com"
+}
+
 # ------------------------------------------------------
 # Uptime Check
 # ------------------------------------------------------
