@@ -70,37 +70,6 @@ resource "google_project_iam_member" "failover_sa_lb_admin" {
   member  = "serviceAccount:${google_service_account.failover_sa.email}"
 }
 
-resource "google_cloudfunctions_function" "regional_failover" {
-  name        = var.function_name
-  description = "Automatically shift traffic to EU when US region fails"
-  project     = var.project_id
-  region      = var.region
-  runtime     = "python311"
-  entry_point = "main"
-
-  available_memory_mb   = 256
-  timeout               = 60
-
-  source_archive_bucket = google_storage_bucket.function_src.name
-  source_archive_object = google_storage_bucket_object.function_zip.name
-
-  trigger_topic         = google_pubsub_topic.regional_failover.name
-  service_account_email = google_service_account.failover_sa.email
-
-  environment_variables = {
-    PROJECT_ID       = var.project_id
-    BACKEND_SERVICE  = var.backend_service_name
-    EU_NEG_NAME      = var.eu_neg_name
-    US_NEG_NAME      = var.us_neg_name
-  }
-
-  depends_on = [
-    google_project_service.cloudfunctions,
-    google_project_service.cloudbuild,
-    google_project_service.pubsub
-  ]
-}
-
 resource "google_monitoring_uptime_check_config" "healthcheck" {
   display_name = "petclinic-healthcheck"
 
@@ -124,6 +93,8 @@ resource "google_monitoring_uptime_check_config" "healthcheck" {
 resource "google_monitoring_alert_policy" "regional_failure" {
   project      = var.project_id
   display_name = "Regional Failure: healthz down on ${var.healthcheck_host}"
+
+  combiner     = "OR"
 
   conditions {
     display_name = "Uptime check failed"
