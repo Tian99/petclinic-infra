@@ -9,6 +9,10 @@ terraform {
   }
 }
 
+# ------------------------------------------------------
+# Enable Required APIs
+# ------------------------------------------------------
+
 resource "google_project_service" "cloudbuild" {
   project = var.project_id
   service = "cloudbuild.googleapis.com"
@@ -29,7 +33,9 @@ resource "google_project_service" "cloudfunctions" {
   service = "cloudfunctions.googleapis.com"
 }
 
-# Pub/Sub topic -----------------------------------------------------
+# ------------------------------------------------------
+# Pub/Sub Topic
+# ------------------------------------------------------
 
 resource "google_pubsub_topic" "regional_failover" {
   name    = var.pubsub_topic_name
@@ -46,7 +52,9 @@ resource "google_monitoring_notification_channel" "regional_failover" {
   }
 }
 
-# Storage bucket for function ---------------------------------------
+# ------------------------------------------------------
+# Storage for Function Source
+# ------------------------------------------------------
 
 resource "google_storage_bucket" "function_src" {
   name          = "${var.project_id}-regional-failover-src"
@@ -67,7 +75,9 @@ resource "google_storage_bucket_object" "function_zip" {
   source = data.archive_file.function_zip.output_path
 }
 
-# Service Account ----------------------------------------------------
+# ------------------------------------------------------
+# Service Account for Cloud Function
+# ------------------------------------------------------
 
 resource "google_service_account" "failover_sa" {
   account_id   = "regional-failover-fn"
@@ -81,13 +91,16 @@ resource "google_project_iam_member" "failover_sa_lb_admin" {
   member  = "serviceAccount:${google_service_account.failover_sa.email}"
 }
 
+# Cloud Build service account to run builds
 resource "google_project_iam_member" "failover_sa_cloudbuild" {
   project = var.project_id
   role    = "roles/cloudbuild.builds.builder"
   member  = "serviceAccount:${google_service_account.failover_sa.email}"
 }
 
-# Cloud Function Gen1 (works & stable) -------------------------------
+# ------------------------------------------------------
+# Cloud Function GEN1 (稳定无坑)
+# ------------------------------------------------------
 
 resource "google_cloudfunctions_function" "regional_failover" {
   name        = var.function_name
@@ -96,14 +109,16 @@ resource "google_cloudfunctions_function" "regional_failover" {
   runtime     = "python311"
   entry_point = "main"
 
-  source_archive_bucket = google_storage_bucket.function_src.name
-  source_archive_object = google_storage_bucket_object.function_zip.name
-
   available_memory_mb = 256
   timeout             = 60
 
+  source_archive_bucket = google_storage_bucket.function_src.name
+  source_archive_object = google_storage_bucket_object.function_zip.name
+
+  # Pub/Sub trigger
+  trigger_topic = google_pubsub_topic.regional_failover.name
+
   service_account_email = google_service_account.failover_sa.email
-  trigger_topic         = google_pubsub_topic.regional_failover.name
 
   environment_variables = {
     PROJECT_ID       = var.project_id
@@ -114,12 +129,14 @@ resource "google_cloudfunctions_function" "regional_failover" {
 
   depends_on = [
     google_project_service.cloudfunctions,
-    google_project_service.cloudbuild,
-    google_pubsub_topic.regional_failover
+    google_project_service.pubsub,
+    google_project_service.cloudbuild
   ]
 }
 
-# Uptime Check -------------------------------------------------------
+# ------------------------------------------------------
+# Uptime Check
+# ------------------------------------------------------
 
 resource "google_monitoring_uptime_check_config" "healthcheck" {
   display_name = "petclinic-healthcheck"
@@ -141,7 +158,9 @@ resource "google_monitoring_uptime_check_config" "healthcheck" {
   period  = "60s"
 }
 
-# Alert on failure ---------------------------------------------------
+# ------------------------------------------------------
+# Alert Policy (发送到 Pub/Sub)
+# ------------------------------------------------------
 
 resource "google_monitoring_alert_policy" "regional_failure" {
   project      = var.project_id
