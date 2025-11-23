@@ -24,16 +24,9 @@ resource "google_project_service" "pubsub" {
   service = "pubsub.googleapis.com"
 }
 
-resource "google_project_service" "monitoring" {
-  project = var.project_id
-  service = "monitoring.googleapis.com"
-}
-
 resource "google_pubsub_topic" "regional_failover" {
   name    = var.pubsub_topic_name
   project = var.project_id
-
-  depends_on = [google_project_service.pubsub]
 }
 
 resource "google_monitoring_notification_channel" "regional_failover" {
@@ -85,11 +78,11 @@ resource "google_cloudfunctions_function" "regional_failover" {
   runtime     = "python311"
   entry_point = "main"
 
+  available_memory_mb   = 256
+  timeout               = 60
+
   source_archive_bucket = google_storage_bucket.function_src.name
   source_archive_object = google_storage_bucket_object.function_zip.name
-
-  available_memory_mb = 256
-  timeout             = 60
 
   trigger_topic         = google_pubsub_topic.regional_failover.name
   service_account_email = google_service_account.failover_sa.email
@@ -104,7 +97,7 @@ resource "google_cloudfunctions_function" "regional_failover" {
   depends_on = [
     google_project_service.cloudfunctions,
     google_project_service.cloudbuild,
-    google_pubsub_topic.regional_failover
+    google_project_service.pubsub
   ]
 }
 
@@ -112,8 +105,8 @@ resource "google_monitoring_uptime_check_config" "healthcheck" {
   display_name = "petclinic-healthcheck"
 
   http_check {
-    path    = "/healthz"
-    port    = 443
+    path = "/healthz"
+    port = 443
     use_ssl = true
   }
 
@@ -126,18 +119,14 @@ resource "google_monitoring_uptime_check_config" "healthcheck" {
 
   timeout = "10s"
   period  = "60s"
-
-  depends_on = [google_project_service.monitoring]
 }
 
 resource "google_monitoring_alert_policy" "regional_failure" {
-  display_name = "Regional Failure: healthz down on ${var.healthcheck_host}"
-  combiner     = "OR"
   project      = var.project_id
+  display_name = "Regional Failure: healthz down on ${var.healthcheck_host}"
 
   conditions {
     display_name = "Uptime check failed"
-
     condition_threshold {
       filter = <<-EOT
         metric.type="monitoring.googleapis.com/uptime_check/check_passed"
@@ -152,9 +141,5 @@ resource "google_monitoring_alert_policy" "regional_failure" {
 
   notification_channels = [
     google_monitoring_notification_channel.regional_failover.name
-  ]
-
-  depends_on = [
-    google_monitoring_uptime_check_config.healthcheck
   ]
 }
