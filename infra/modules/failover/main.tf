@@ -53,7 +53,6 @@ resource "google_monitoring_notification_channel" "regional_failover" {
   }
 }
 
-
 resource "google_storage_bucket" "function_src" {
   name          = "${var.project_id}-regional-failover-src"
   project       = var.project_id
@@ -72,7 +71,6 @@ resource "google_storage_bucket_object" "function_zip" {
   bucket = google_storage_bucket.function_src.name
   source = data.archive_file.function_zip.output_path
 }
-
 
 resource "google_service_account" "failover_sa" {
   account_id   = "regional-failover-fn"
@@ -94,7 +92,8 @@ resource "google_cloudfunctions2_function" "regional_failover" {
   depends_on = [
     google_project_service.eventarc,
     google_project_service.cloudfunctions,
-    google_project_service.cloudbuild
+    google_project_service.cloudbuild,
+    google_project_service.monitoring
   ]
 
   build_config {
@@ -155,14 +154,12 @@ resource "google_monitoring_alert_policy" "regional_failure" {
 
   conditions {
     display_name = "Uptime check failed"
-
     condition_threshold {
       filter = <<-EOT
         metric.type="monitoring.googleapis.com/uptime_check/check_passed"
         AND resource.type="uptime_url"
         AND resource.label."host"="${var.healthcheck_host}"
       EOT
-
       comparison      = "COMPARISON_LT"
       threshold_value = 1
       duration        = "60s"
