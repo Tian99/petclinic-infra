@@ -103,7 +103,7 @@ resource "google_monitoring_uptime_check_config" "healthcheck" {
   }
 
   timeout = "10s"
-  period  = "30s"
+  period  = "60s"
 }
 
 resource "google_monitoring_alert_policy" "regional_failure" {
@@ -123,10 +123,10 @@ resource "google_monitoring_alert_policy" "regional_failure" {
 
       comparison      = "COMPARISON_LT"
       threshold_value = 1
-      duration        = "15s"
+      duration        = "60s"
 
       aggregations {
-        alignment_period   = "15s"
+        alignment_period   = "60s"
         per_series_aligner = "ALIGN_MEAN"
       }
     }
