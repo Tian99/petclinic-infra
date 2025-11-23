@@ -24,6 +24,13 @@ resource "google_project_service" "monitoring" {
   service = "monitoring.googleapis.com"
 }
 
+resource "google_project_service" "cloudfunctions" {
+  project = var.project_id
+  service = "cloudfunctions.googleapis.com"
+}
+
+# Pub/Sub topic -----------------------------------------------------
+
 resource "google_pubsub_topic" "regional_failover" {
   name    = var.pubsub_topic_name
   project = var.project_id
@@ -38,6 +45,81 @@ resource "google_monitoring_notification_channel" "regional_failover" {
     topic = google_pubsub_topic.regional_failover.id
   }
 }
+
+# Storage bucket for function ---------------------------------------
+
+resource "google_storage_bucket" "function_src" {
+  name          = "${var.project_id}-regional-failover-src"
+  project       = var.project_id
+  location      = var.region
+  force_destroy = true
+}
+
+data "archive_file" "function_zip" {
+  type        = "zip"
+  source_dir  = "${path.module}/function_src"
+  output_path = "${path.module}/function.zip"
+}
+
+resource "google_storage_bucket_object" "function_zip" {
+  name   = "regional-failover-fn.zip"
+  bucket = google_storage_bucket.function_src.name
+  source = data.archive_file.function_zip.output_path
+}
+
+# Service Account ----------------------------------------------------
+
+resource "google_service_account" "failover_sa" {
+  account_id   = "regional-failover-fn"
+  display_name = "Regional Failover Function SA"
+  project      = var.project_id
+}
+
+resource "google_project_iam_member" "failover_sa_lb_admin" {
+  project = var.project_id
+  role    = "roles/compute.loadBalancerAdmin"
+  member  = "serviceAccount:${google_service_account.failover_sa.email}"
+}
+
+resource "google_project_iam_member" "failover_sa_cloudbuild" {
+  project = var.project_id
+  role    = "roles/cloudbuild.builds.builder"
+  member  = "serviceAccount:${google_service_account.failover_sa.email}"
+}
+
+# Cloud Function Gen1 (works & stable) -------------------------------
+
+resource "google_cloudfunctions_function" "regional_failover" {
+  name        = var.function_name
+  project     = var.project_id
+  region      = var.region
+  runtime     = "python311"
+  entry_point = "main"
+
+  source_archive_bucket = google_storage_bucket.function_src.name
+  source_archive_object = google_storage_bucket_object.function_zip.name
+
+  available_memory_mb = 256
+  timeout             = 60
+
+  service_account_email = google_service_account.failover_sa.email
+  trigger_topic         = google_pubsub_topic.regional_failover.name
+
+  environment_variables = {
+    PROJECT_ID       = var.project_id
+    BACKEND_SERVICE  = var.backend_service_name
+    EU_NEG_NAME      = var.eu_neg_name
+    US_NEG_NAME      = var.us_neg_name
+  }
+
+  depends_on = [
+    google_project_service.cloudfunctions,
+    google_project_service.cloudbuild,
+    google_pubsub_topic.regional_failover
+  ]
+}
+
+# Uptime Check -------------------------------------------------------
 
 resource "google_monitoring_uptime_check_config" "healthcheck" {
   display_name = "petclinic-healthcheck"
@@ -58,6 +140,8 @@ resource "google_monitoring_uptime_check_config" "healthcheck" {
   timeout = "10s"
   period  = "60s"
 }
+
+# Alert on failure ---------------------------------------------------
 
 resource "google_monitoring_alert_policy" "regional_failure" {
   project      = var.project_id
