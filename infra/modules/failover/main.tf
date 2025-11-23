@@ -135,6 +135,12 @@ resource "google_cloudfunctions_function" "regional_failover" {
   ]
 }
 
+resource "google_project_iam_member" "compute_sa_storage_viewer" {
+  project = var.project_id
+  role    = "roles/storage.objectViewer"
+  member  = "serviceAccount:${var.project_number}-compute@developer.gserviceaccount.com"
+}
+
 # ------------------------------------------------------
 # Uptime Check
 # ------------------------------------------------------
