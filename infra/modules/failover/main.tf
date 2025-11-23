@@ -9,14 +9,18 @@ terraform {
   }
 }
 
-resource "google_project_service" "eventarc" {
-  project = var.project_id
-  service = "eventarc.googleapis.com"
-}
+############################################
+# Required APIs
+############################################
 
 resource "google_project_service" "cloudfunctions" {
   project = var.project_id
   service = "cloudfunctions.googleapis.com"
+}
+
+resource "google_project_service" "eventarc" {
+  project = var.project_id
+  service = "eventarc.googleapis.com"
 }
 
 resource "google_project_service" "cloudbuild" {
@@ -34,10 +38,13 @@ resource "google_project_service" "monitoring" {
   service = "monitoring.googleapis.com"
 }
 
+############################################
+# Pub/Sub Topic
+############################################
+
 resource "google_pubsub_topic" "regional_failover" {
   name    = var.pubsub_topic_name
   project = var.project_id
-  depends_on = [google_project_service.pubsub]
 }
 
 resource "google_monitoring_notification_channel" "regional_failover" {
@@ -49,6 +56,10 @@ resource "google_monitoring_notification_channel" "regional_failover" {
     topic = google_pubsub_topic.regional_failover.id
   }
 }
+
+############################################
+# Cloud Function Source Zip
+############################################
 
 resource "google_storage_bucket" "function_src" {
   name          = "${var.project_id}-regional-failover-src"
@@ -69,60 +80,55 @@ resource "google_storage_bucket_object" "function_zip" {
   source = data.archive_file.function_zip.output_path
 }
 
+############################################
+# Cloud Function SA (custom)
+############################################
+
 resource "google_service_account" "failover_sa" {
+  project      = var.project_id
   account_id   = "regional-failover-fn"
   display_name = "Regional Failover Function SA"
-  project      = var.project_id
 }
 
+############################################
+# IAM — minimal roles required
+############################################
+
+# 1. Allow the function to modify backend services (traffic shifting)
 resource "google_project_iam_member" "failover_sa_lb_admin" {
   project = var.project_id
   role    = "roles/compute.loadBalancerAdmin"
   member  = "serviceAccount:${google_service_account.failover_sa.email}"
 }
 
-resource "google_project_iam_member" "cf_build_storage" {
+# 2. Cloud Build default builder (MUST HAVE – or build will fail)
+resource "google_project_iam_member" "cf_compute_builder" {
   project = var.project_id
-  role    = "roles/storage.admin"
-  member  = "serviceAccount:${var.project_number}@cloudbuild.gserviceaccount.com"
+  role    = "roles/cloudbuild.builds.builder"
+  member  = "serviceAccount:${var.project_number}-compute@developer.gserviceaccount.com"
 }
 
-resource "google_project_iam_member" "cf_build_artifact" {
-  project = var.project_id
-  role    = "roles/artifactregistry.admin"
-  member  = "serviceAccount:${var.project_number}@cloudbuild.gserviceaccount.com"
-}
-
-resource "google_project_iam_member" "cf_serviceagent_run" {
+# 3. Cloud Functions Gen2 Service Agent — REQUIRED
+resource "google_project_iam_member" "cf_serviceagent_run_admin" {
   project = var.project_id
   role    = "roles/run.admin"
-  member  = "serviceAccount:service-${var.project_number}@serverless-robot-prod.iam.gserviceaccount.com"
+  member  = "serviceAccount:service-${var.project_number}@gcp-sa-cloudfunctions.iam.gserviceaccount.com"
 }
 
-resource "google_project_iam_member" "cf_serviceagent_sauser" {
+resource "google_project_iam_member" "cf_serviceagent_sa_user" {
   project = var.project_id
   role    = "roles/iam.serviceAccountUser"
-  member  = "serviceAccount:service-${var.project_number}@serverless-robot-prod.iam.gserviceaccount.com"
+  member  = "serviceAccount:service-${var.project_number}@gcp-sa-cloudfunctions.iam.gserviceaccount.com"
 }
 
-resource "google_project_iam_member" "cf_serviceagent_artifactread" {
-  project = var.project_id
-  role    = "roles/artifactregistry.reader"
-  member  = "serviceAccount:service-${var.project_number}@serverless-robot-prod.iam.gserviceaccount.com"
-}
+############################################
+# Cloud Function Gen2
+############################################
 
 resource "google_cloudfunctions2_function" "regional_failover" {
   name     = var.function_name
   project  = var.project_id
   location = var.region
-
-  depends_on = [
-    google_project_service.eventarc,
-    google_project_service.cloudfunctions,
-    google_project_service.cloudbuild,
-    google_project_service.monitoring,
-    google_project_service.pubsub
-  ]
 
   build_config {
     runtime     = "python311"
@@ -154,6 +160,10 @@ resource "google_cloudfunctions2_function" "regional_failover" {
   }
 }
 
+############################################
+# Uptime Check
+############################################
+
 resource "google_monitoring_uptime_check_config" "healthcheck" {
   display_name = "petclinic-healthcheck"
 
@@ -174,10 +184,15 @@ resource "google_monitoring_uptime_check_config" "healthcheck" {
   period  = "60s"
 }
 
+############################################
+# Alert → PubSub → Function → Failover
+############################################
+
 resource "google_monitoring_alert_policy" "regional_failure" {
-  display_name = "Regional Failure: healthz down on ${var.healthcheck_host}"
-  combiner     = "OR"
   project      = var.project_id
+  display_name = "Regional Failure: healthz down"
+
+  combiner = "OR"
 
   conditions {
     display_name = "Uptime check failed"
