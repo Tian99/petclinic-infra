@@ -37,3 +37,8 @@ variable "function_name" {
   type    = string
   default = "regional-failover-fn"
 }
+
+variable "project_number" {
+  type        = string
+  description = "GCP Project number"
+}
