@@ -9,11 +9,6 @@ terraform {
   }
 }
 
-resource "google_project_service" "cloudfunctions" {
-  project = var.project_id
-  service = "cloudfunctions.googleapis.com"
-}
-
 resource "google_project_service" "cloudbuild" {
   project = var.project_id
   service = "cloudbuild.googleapis.com"
@@ -22,6 +17,11 @@ resource "google_project_service" "cloudbuild" {
 resource "google_project_service" "pubsub" {
   project = var.project_id
   service = "pubsub.googleapis.com"
+}
+
+resource "google_project_service" "monitoring" {
+  project = var.project_id
+  service = "monitoring.googleapis.com"
 }
 
 resource "google_pubsub_topic" "regional_failover" {
@@ -39,43 +39,12 @@ resource "google_monitoring_notification_channel" "regional_failover" {
   }
 }
 
-resource "google_storage_bucket" "function_src" {
-  name          = "${var.project_id}-regional-failover-src"
-  project       = var.project_id
-  location      = var.region
-  force_destroy = true
-}
-
-data "archive_file" "function_zip" {
-  type        = "zip"
-  source_dir  = "${path.module}/function_src"
-  output_path = "${path.module}/function.zip"
-}
-
-resource "google_storage_bucket_object" "function_zip" {
-  name   = "regional-failover-fn.zip"
-  bucket = google_storage_bucket.function_src.name
-  source = data.archive_file.function_zip.output_path
-}
-
-resource "google_service_account" "failover_sa" {
-  account_id   = "regional-failover-fn"
-  display_name = "Regional Failover Function SA"
-  project      = var.project_id
-}
-
-resource "google_project_iam_member" "failover_sa_lb_admin" {
-  project = var.project_id
-  role    = "roles/compute.loadBalancerAdmin"
-  member  = "serviceAccount:${google_service_account.failover_sa.email}"
-}
-
 resource "google_monitoring_uptime_check_config" "healthcheck" {
   display_name = "petclinic-healthcheck"
 
   http_check {
-    path = "/healthz"
-    port = 443
+    path    = "/healthz"
+    port    = 443
     use_ssl = true
   }
 
@@ -93,17 +62,18 @@ resource "google_monitoring_uptime_check_config" "healthcheck" {
 resource "google_monitoring_alert_policy" "regional_failure" {
   project      = var.project_id
   display_name = "Regional Failure: healthz down on ${var.healthcheck_host}"
-
   combiner     = "OR"
 
   conditions {
-    display_name = "Uptime check failed"
+    display_name = "Uptime check failed for ${var.healthcheck_host}"
+
     condition_threshold {
       filter = <<-EOT
         metric.type="monitoring.googleapis.com/uptime_check/check_passed"
         AND resource.type="uptime_url"
         AND resource.label."host"="${var.healthcheck_host}"
       EOT
+
       comparison      = "COMPARISON_LT"
       threshold_value = 1
       duration        = "60s"
