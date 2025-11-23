@@ -91,7 +91,6 @@ resource "google_project_iam_member" "failover_sa_lb_admin" {
   member  = "serviceAccount:${google_service_account.failover_sa.email}"
 }
 
-# Cloud Build service account to run builds
 resource "google_project_iam_member" "failover_sa_cloudbuild" {
   project = var.project_id
   role    = "roles/cloudbuild.builds.builder"
@@ -99,7 +98,7 @@ resource "google_project_iam_member" "failover_sa_cloudbuild" {
 }
 
 # ------------------------------------------------------
-# Cloud Function GEN1 (稳定无坑)
+# Cloud Function GEN1
 # ------------------------------------------------------
 
 resource "google_cloudfunctions_function" "regional_failover" {
@@ -119,6 +118,7 @@ resource "google_cloudfunctions_function" "regional_failover" {
     event_type = "google.pubsub.topic.publish"
     resource   = google_pubsub_topic.regional_failover.name
   }
+
   service_account_email = google_service_account.failover_sa.email
 
   environment_variables = {
@@ -142,11 +142,19 @@ resource "google_project_iam_member" "compute_sa_storage_viewer" {
 }
 
 # ------------------------------------------------------
-# Uptime Check
+# Local - Extract US Host
+# ------------------------------------------------------
+
+locals {
+  us_host = replace(module.run.us_url, "https://", "")
+}
+
+# ------------------------------------------------------
+# Uptime Check (only for US)
 # ------------------------------------------------------
 
 resource "google_monitoring_uptime_check_config" "healthcheck" {
-  display_name = "petclinic-healthcheck"
+  display_name = "petclinic-us-healthcheck"
 
   http_check {
     path    = "/healthz"
@@ -157,7 +165,7 @@ resource "google_monitoring_uptime_check_config" "healthcheck" {
   monitored_resource {
     type = "uptime_url"
     labels = {
-      host = var.healthcheck_host
+      host = local.us_host
     }
   }
 
@@ -166,23 +174,21 @@ resource "google_monitoring_uptime_check_config" "healthcheck" {
 }
 
 # ------------------------------------------------------
-# Alert Policy (发送到 Pub/Sub)
+# Alert Policy (Trigger failover when US is down)
 # ------------------------------------------------------
 
 resource "google_monitoring_alert_policy" "regional_failure" {
   project      = var.project_id
-  display_name = "Regional Failure: healthz down on ${var.healthcheck_host}"
+  display_name = "Regional Failure: US healthz down"
   combiner     = "OR"
 
   conditions {
-    display_name = "Uptime check failed for ${var.healthcheck_host}"
+    display_name = "Uptime check failed for US region"
 
     condition_threshold {
-      filter = <<-EOT
-        metric.type="monitoring.googleapis.com/uptime_check/check_passed"
-        AND resource.type="uptime_url"
-        AND resource.label."host"="${var.healthcheck_host}"
-      EOT
+      filter = "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" " 
+             + "AND resource.type=\"uptime_url\" "
+             + "AND resource.label.\"host\"=\"${local.us_host}\""
 
       comparison      = "COMPARISON_LT"
       threshold_value = 1
@@ -192,5 +198,9 @@ resource "google_monitoring_alert_policy" "regional_failure" {
 
   notification_channels = [
     google_monitoring_notification_channel.regional_failover.name
+  ]
+
+  depends_on = [
+    google_monitoring_uptime_check_config.healthcheck
   ]
 }

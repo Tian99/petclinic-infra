@@ -1,6 +1,4 @@
-#############################################
 # Network Layer
-#############################################
 
 module "network" {
   source       = "./modules/network"
@@ -11,10 +9,7 @@ module "network" {
   us_region = var.us_region
 }
 
-
-#############################################
 # Cloud SQL Layer (Primary EU + Replica US)
-#############################################
 
 module "sql" {
   source = "./modules/sql"
@@ -33,10 +28,7 @@ module "sql" {
   us_subnet     = module.network.us_subnet
 }
 
-
-#############################################
 # Cloud Run Layer (EU + US)
-#############################################
 
 module "run" {
   source = "./modules/run"
@@ -61,10 +53,7 @@ module "run" {
   image = var.image
 }
 
-
-#############################################
 # Global HTTPS Load Balancer
-#############################################
 
 module "lb" {
   source     = "./modules/lb"
