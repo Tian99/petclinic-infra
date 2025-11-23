@@ -37,7 +37,6 @@ resource "google_project_service" "monitoring" {
 resource "google_pubsub_topic" "regional_failover" {
   name    = var.pubsub_topic_name
   project = var.project_id
-
   depends_on = [google_project_service.pubsub]
 }
 
@@ -90,8 +89,26 @@ resource "google_project_iam_member" "cf_build_storage" {
 
 resource "google_project_iam_member" "cf_build_artifact" {
   project = var.project_id
-  role    = "roles/artifactregistry.writer"
+  role    = "roles/artifactregistry.admin"
   member  = "serviceAccount:${var.project_number}@cloudbuild.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "cf_serviceagent_run" {
+  project = var.project_id
+  role    = "roles/run.admin"
+  member  = "serviceAccount:service-${var.project_number}@serverless-robot-prod.iam.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "cf_serviceagent_sauser" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountUser"
+  member  = "serviceAccount:service-${var.project_number}@serverless-robot-prod.iam.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "cf_serviceagent_artifactread" {
+  project = var.project_id
+  role    = "roles/artifactregistry.reader"
+  member  = "serviceAccount:service-${var.project_number}@serverless-robot-prod.iam.gserviceaccount.com"
 }
 
 resource "google_cloudfunctions2_function" "regional_failover" {
@@ -122,6 +139,7 @@ resource "google_cloudfunctions2_function" "regional_failover" {
     available_memory      = "256M"
     timeout_seconds       = 60
     service_account_email = google_service_account.failover_sa.email
+
     environment_variables = {
       PROJECT_ID       = var.project_id
       BACKEND_SERVICE  = var.backend_service_name
