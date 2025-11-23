@@ -38,9 +38,7 @@ resource "google_pubsub_topic" "regional_failover" {
   name    = var.pubsub_topic_name
   project = var.project_id
 
-  depends_on = [
-    google_project_service.pubsub
-  ]
+  depends_on = [google_project_service.pubsub]
 }
 
 resource "google_monitoring_notification_channel" "regional_failover" {
@@ -84,6 +82,30 @@ resource "google_project_iam_member" "failover_sa_lb_admin" {
   member  = "serviceAccount:${google_service_account.failover_sa.email}"
 }
 
+resource "google_project_iam_member" "cf_build_storage" {
+  project = var.project_id
+  role    = "roles/storage.admin"
+  member  = "serviceAccount:${var.project_number}@cloudbuild.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "cf_build_artifact" {
+  project = var.project_id
+  role    = "roles/artifactregistry.writer"
+  member  = "serviceAccount:${var.project_number}@cloudbuild.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "cf_serviceagent_run_admin" {
+  project = var.project_id
+  role    = "roles/run.admin"
+  member  = "serviceAccount:service-${var.project_number}@gcp-sa-cloudfunctions.iam.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "cf_serviceagent_sa_user" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountUser"
+  member  = "serviceAccount:service-${var.project_number}@gcp-sa-cloudfunctions.iam.gserviceaccount.com"
+}
+
 resource "google_cloudfunctions2_function" "regional_failover" {
   name     = var.function_name
   project  = var.project_id
@@ -93,13 +115,13 @@ resource "google_cloudfunctions2_function" "regional_failover" {
     google_project_service.eventarc,
     google_project_service.cloudfunctions,
     google_project_service.cloudbuild,
-    google_project_service.monitoring
+    google_project_service.monitoring,
+    google_project_service.pubsub
   ]
 
   build_config {
     runtime     = "python311"
     entry_point = "main"
-
     source {
       storage_source {
         bucket = google_storage_bucket.function_src.name
@@ -112,7 +134,6 @@ resource "google_cloudfunctions2_function" "regional_failover" {
     available_memory      = "256M"
     timeout_seconds       = 60
     service_account_email = google_service_account.failover_sa.email
-
     environment_variables = {
       PROJECT_ID       = var.project_id
       BACKEND_SERVICE  = var.backend_service_name
@@ -154,6 +175,7 @@ resource "google_monitoring_alert_policy" "regional_failure" {
 
   conditions {
     display_name = "Uptime check failed"
+
     condition_threshold {
       filter = <<-EOT
         metric.type="monitoring.googleapis.com/uptime_check/check_passed"

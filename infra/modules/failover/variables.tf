@@ -3,6 +3,11 @@ variable "project_id" {
   description = "GCP project id"
 }
 
+variable "project_number" {
+  type        = string
+  description = "GCP project number (required for Cloud Functions Gen2 IAM)"
+}
+
 variable "region" {
   type        = string
   description = "Region for Cloud Function & bucket (e.g. europe-west1)"
