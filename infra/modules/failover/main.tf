@@ -94,18 +94,6 @@ resource "google_project_iam_member" "cf_build_artifact" {
   member  = "serviceAccount:${var.project_number}@cloudbuild.gserviceaccount.com"
 }
 
-resource "google_project_iam_member" "cf_serviceagent_run_admin" {
-  project = var.project_id
-  role    = "roles/run.admin"
-  member  = "serviceAccount:service-${var.project_number}@gcp-sa-cloudfunctions.iam.gserviceaccount.com"
-}
-
-resource "google_project_iam_member" "cf_serviceagent_sa_user" {
-  project = var.project_id
-  role    = "roles/iam.serviceAccountUser"
-  member  = "serviceAccount:service-${var.project_number}@gcp-sa-cloudfunctions.iam.gserviceaccount.com"
-}
-
 resource "google_cloudfunctions2_function" "regional_failover" {
   name     = var.function_name
   project  = var.project_id
